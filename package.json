@@ -1,0 +1,25 @@
+{
+  "version": "0.0.0",
+  "main": "./lib/index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "make test"
+  },
+  "license": "MIT",
+  "name": "migrate-shell",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:sailxjx/migrate-shell.git"
+  },
+  "devDependencies": {
+    "cake-dog": "^0.3.0",
+    "should": "^3.3.1",
+    "mocha": "^1.18.2"
+  },
+  "dependencies": {
+    "commander": "^2.2.0",
+    "mkdirp": "^0.4.1"
+  }
+}
