@@ -1,6 +1,8 @@
 {
+  "name": "migrate-shell",
+  "description": "db migration with mongo shell",
   "version": "0.0.0",
-  "main": "./lib/index.js",
+  "main": "./lib/mms.js",
   "directories": {
     "test": "test"
   },
@@ -8,7 +10,6 @@
     "test": "make test"
   },
   "license": "MIT",
-  "name": "migrate-shell",
   "repository": {
     "type": "git",
     "url": "git@github.com:sailxjx/migrate-shell.git"
@@ -16,10 +17,10 @@
   "devDependencies": {
     "cake-dog": "^0.3.0",
     "should": "^3.3.1",
-    "mocha": "^1.18.2"
+    "mocha": "^1.18.2",
+    "coffee-script": "^1.7.1"
   },
   "dependencies": {
-    "commander": "^2.2.0",
     "mkdirp": "^0.4.1"
   }
 }
