@@ -1,3 +1,4 @@
 {
-  "dir": "migrations"
+  "dir": "migrations",
+  "db": "http://127.0.0.1/test"
 }

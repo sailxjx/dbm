@@ -23,7 +23,6 @@ class MMS
   create: (name, callback = ->) ->
     timestamp = Date.now()
     ext = config.ext or '.js'
-    ext = '.coffee' if config.compiler is 'coffee'
     upFile = path.join config.dir, "#{timestamp}_up_#{name}#{ext}"
     downFile = path.join config.dir, "#{timestamp}_down_#{name}#{ext}"
 

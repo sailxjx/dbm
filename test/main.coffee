@@ -21,7 +21,7 @@ describe 'Create', ->
       done()
 
   it 'should create two coffee script file when use coffee compiler', (done) ->
-    config.compiler = 'coffee'
+    config.ext = 'coffee'
     mms.create 'tmp_file', ->
       files = fs.readdirSync './migrations'
       hasUp = false
@@ -31,7 +31,7 @@ describe 'Create', ->
         hasDown = true if file.match /^[0-9]{13}_down_tmp_file\.coffee$/
       hasUp.should.eql true
       hasDown.should.eql true
-      delete config.compiler
+      delete config.ext
       done()
 
   after ->

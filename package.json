@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "mkdirp": "^0.4.1",
-    "graceful-logger": "^0.4.0"
+    "graceful-logger": "^0.4.0",
+    "commander": "^2.2.0"
   }
 }

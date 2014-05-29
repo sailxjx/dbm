@@ -1,5 +1,6 @@
 pkg = require '../package.json'
 mms = require './mms'
+commander = require 'commander'
 
 usage = """
 
