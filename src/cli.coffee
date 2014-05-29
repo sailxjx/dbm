@@ -1,26 +1,31 @@
+commander = require 'commander'
 pkg = require '../package.json'
 mms = require './mms'
-commander = require 'commander'
 
-usage = """
+commander.version pkg.version
+  .usage '[options] [command]'
+  .option '--ext <ext>', 'extension of migration files'
+  .option '--db <db>', 'connection of migration db'
+  .option '--dir <dir>', 'directory for saving migration files'
+  .option '--file <file>', 'the file to saving migration status'
 
-  Usage: mms [command]
+commander.command 'migrate'
+  .usage '[name|version|step]'
+  .description '(default) migrate to the given migration'
+  .action (name, options) -> mms.migrate name, options.parent
 
-  Commands:
+commander.command 'rollback'
+  .usage '[name|version|step]'
+  .description 'rollback till given migration'
+  .action (name, options) -> mms.rollback name, options.parent
 
-    migrate    [name|version|step]    migrate to the given migration (default)
-    rollback   [name|version|step]    rollback till given migration
-    create     [name]                 create a new migration file with its name
+commander.command 'create'
+  .usage '[name]'
+  .description 'create a new migration file with its name'
+  .action (name, options) -> mms.create name, options.parent
 
-"""
+commander.command 'status'
+  .description 'show status of migrations'
+  .action (options) -> mms.status()
 
-switch process.argv[2]
-  when '-h', '--help' then console.log usage
-  when '-v', '--version' then console.log pkg.name + " " + pkg.version
-  when 'migrate' then mms.migrate process.argv[3]
-  when 'rollback' then mms.rollback process.argv[3]
-  when 'create' then mms.create process.argv[3]
-  when undefined then mms.migrate()
-  else
-    console.log "Unknown command #{process.argv[2]}"
-    console.log usage
+commander.parse process.argv

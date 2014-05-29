@@ -9,7 +9,7 @@ config = require '../lib/config.js'
 describe 'Create', ->
 
   it 'should create two migration files', (done) ->
-    mms.create 'tmp_file', ->
+    mms.create 'tmp_file', {}, ->
       files = fs.readdirSync './migrations'
       hasUp = false
       hasDown = false
@@ -21,8 +21,8 @@ describe 'Create', ->
       done()
 
   it 'should create two coffee script file when use coffee compiler', (done) ->
-    config.ext = 'coffee'
-    mms.create 'tmp_file', ->
+    config.ext = '.coffee'
+    mms.create 'tmp_file', {}, ->
       files = fs.readdirSync './migrations'
       hasUp = false
       hasDown = false

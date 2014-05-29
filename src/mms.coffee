@@ -2,8 +2,8 @@ fs = require 'fs'
 path = require 'path'
 util = require 'util'
 mkdirp = require 'mkdirp'
+colors = require 'colors'
 config = require './config'
-logger = require './logger'
 
 class MMS
 
@@ -15,12 +15,11 @@ class MMS
       config = util._extend config,
         require path.resolve('./.mmsrc.json')
     catch e
-      console.log e
 
   _loadMigrations: ->
 
   # Create new migration files
-  create: (name, callback = ->) ->
+  create: (name, options = {}, callback = ->) ->
     timestamp = Date.now()
     ext = config.ext or '.js'
     upFile = path.join config.dir, "#{timestamp}_up_#{name}#{ext}"
@@ -28,15 +27,17 @@ class MMS
 
     mkdirp.sync config.dir
     fs.writeFileSync upFile, ''
-    logger.info 'create up file:', upFile
+    console.log '  create up file:'.cyan, upFile.grey
     fs.writeFileSync downFile, ''
-    logger.info 'create down file:', downFile
+    console.log '  create down file:'.cyan, downFile.grey
     callback()
 
   # Start migration
-  migrate: (name, callback = ->) ->
+  migrate: (name, options = {}, callback = ->) ->
 
   # Rollback to the former version
-  rollback: (name, callback = ->) ->
+  rollback: (name, options = {}, callback = ->) ->
+
+  status: (callback = ->) ->
 
 module.exports = new MMS
