@@ -21,8 +21,7 @@ class MMS
   _loadMigrations: ->
     migrations = {}
     files = fs.readdirSync config.dir
-    files = files.filter (file) ->
-      return false unless file.match /^[0-9]{13}_(up|down)_.*\.(js|coffee)$/
+    files = files.filter (file) -> if file.match /^[0-9]{13}_(up|down)_.*\.(js|coffee)$/ then true else false
     files.sort (x, y) -> Number(x.split('_')[0]) - Number(y.split('_')[0])
     files.forEach (file) ->
       title = file.replace /^[0-9]{13}_(up|down)/, (code) -> code.split('_')[0]
@@ -44,36 +43,34 @@ class MMS
       versionIdx[title[0...13]] = 1
       nameIdx[title[14..]] = 1
     unless versionIdx[name] or nameIdx[name] or name.match /[0-9]{1,5}/
-      console.error '  err!:'.red, "migration [#{name}] not found!".grey
+      console.error '  fail'.red, "migration [#{name}] not found!".grey
       process.exit(1)
 
   _migrate: (file, callback = ->) ->
-    console.log '  migrate:'.cyan, file.grey
-    filePath = path.join config.dir, file
+    console.log '  migrate'.cyan, file.grey
+    isCoffee = true if path.extname(file) is '.coffee'
     async.waterfall [
       (next) ->
-        if path.extname(filePath) is 'coffee'
-          exec "coffee -c #{filePath}", (err) -> next err
+        filePath = path.join config.dir, file
+        if isCoffee
+          exec "coffee -c #{filePath}", (err) ->
+            filePath = filePath.replace '.coffee', '.js'
+            next err, filePath
         else
-          next()
-      (next) ->
-        if path.extname(filePath) is 'coffee'
-          _filePath = filePath.replace '.coffee', '.js'
-        else
-          _filePath = filePath
-        child = exec "mongo #{config.db} --quiet #{_filePath}", (err) -> next(err)
+          next null, filePath
+      (filePath, next) ->
+        child = exec "mongo #{config.db} --quiet #{filePath}", (err) -> next err, filePath
         child.stdout.on 'data', (data) -> process.stdout.write data
         child.stderr.on 'data', (data) -> process.stderr.write data
-      (next) ->
-        if path.extname(filePath) is 'coffee'
-          fs.unlinkSync filePath.replace '.coffee', '.js'
+      (filePath, next) ->
+        fs.unlinkSync filePath if isCoffee
         next()
     ], (err) ->
       if err?
-        console.error '  fail:'.red, "#{file}"
+        console.error '  fail'.red, file.grey
         process.exit(2)
       else
-        console.log '  succ:'.green, "#{file}"
+        console.log '  succ'.green, file.grey
         callback()
 
   # Create new migration files
@@ -85,29 +82,41 @@ class MMS
 
     mkdirp.sync config.dir
     fs.writeFileSync upFile, ''
-    console.log '  create up file:'.cyan, upFile.grey
+    console.log '  create'.cyan, upFile.grey
     fs.writeFileSync downFile, ''
-    console.log '  create down file:'.cyan, downFile.grey
+    console.log '  create'.cyan, downFile.grey
     callback()
 
   # Start migration
   migrate: (name, options = {}, callback = ->) ->
     migrations = @_loadMigrations()
     @_checkVersion(name, migrations)
-    schema = require config.schema
+    try
+      schema = require path.resolve(config.schema)
+    catch e
+      schema = {}
     newSchema = {}
 
-    async.eachSeries Object.keys(migrations), (title, next) ->
+    step = 0
+    async.eachSeries Object.keys(migrations), (title, next) =>
       if schema[title]? and schema[title].status is 'up'
+        console.log '============'
         newSchema[title] = status: 'up'
         next()
       else
         migration = migrations[title]
         @_migrate migration.up, ->
+          step += 1
           newSchema[title] = status: 'up'
           fs.writeFileSync config.schema, JSON.stringify(newSchema, null, 2)
+          if name.match /[0-9]{1,5}/ and step is Number(name)
+            return next('finish')
+          if title.indexOf(name) > -1
+            return next('finish')
           next()
-    , callback
+    , (err) ->
+      console.log '  complete'.cyan
+      callback()
 
   # Rollback to the former version
   rollback: (name, options = {}, callback = ->) ->

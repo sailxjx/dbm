@@ -51,7 +51,8 @@ describe 'Migrate', ->
       print(user.email);
       '
       ''', (err, stdout) ->
-        stdout.should.eql 'user@gmail.com'
+        stdout.should.eql 'user@gmail.com\n'
+        delete require.cache[path.resolve('./migrations/.migrate.json')]
         done err
 
   it 'should migrate till the 1401332571122(update_email) migration', (done) ->
@@ -62,7 +63,8 @@ describe 'Migrate', ->
       print(user.email);
       '
       ''', (err, stdout) ->
-        stdout.should.eql 'new@gmail.com'
+        stdout.should.eql 'new@gmail.com\n'
+        delete require.cache[path.resolve('./migrations/.migrate.json')]
         done err
 
   it 'should migrate the next migration', (done) ->
@@ -73,18 +75,17 @@ describe 'Migrate', ->
       print(user.avatar);
       '
       ''', (err, stdout) ->
-        stdout.should.eql 'avatarurl'
+        stdout.should.eql 'avatarurl\n'
+        delete require.cache[path.resolve('./migrations/.migrate.json')]
         done err
 
   it 'should update the migration file', ->
-    schema = require './migrations/.migrate.json'
+    schema = require path.resolve('./migrations/.migrate.json')
     Object.keys(schema).length.should.eql 3
+    delete require.cache[path.resolve('./migrations/.migrate.json')]
 
   after (done) ->
-    fs.unlinkSync './migrations/.migrate.json'
+    fs.unlinkSync path.resolve './migrations/.migrate.json'
     exec '''
-    mongo 127.0.0.1/test --quiet --eval '
-    db.dropDatebase();
-    '
+    mongo 127.0.0.1/test --quiet --eval 'db.dropDatabase();'
     ''', done
-
