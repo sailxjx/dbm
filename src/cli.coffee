@@ -7,7 +7,7 @@ commander.version pkg.version
   .option '--ext <ext>', 'extension of migration files'
   .option '--db <db>', 'connection of migration db'
   .option '--dir <dir>', 'directory for saving migration files'
-  .option '--file <file>', 'the file to saving migration status'
+  .option '--schema <schema>', 'the schema file to saving migration status'
 
 commander.command 'migrate'
   .usage '[name|version|step]'
