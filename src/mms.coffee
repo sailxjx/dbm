@@ -13,15 +13,17 @@ class MMS
   _loadrc: ->
     try
       config = util._extend config,
-        require '.mmsrc.json'
+        require path.resolve('./.mmsrc.json')
     catch e
+      console.log e
 
   _loadMigrations: ->
 
   # Create new migration files
   create: (name, callback = ->) ->
     timestamp = Date.now()
-    ext = '.js'
+    ext = config.ext or '.js'
+    ext = '.coffee' if config.compiler is 'coffee'
     upFile = path.join config.dir, "#{timestamp}_up_#{name}#{ext}"
     downFile = path.join config.dir, "#{timestamp}_down_#{name}#{ext}"
 
@@ -30,6 +32,7 @@ class MMS
     logger.info 'create up file:', upFile
     fs.writeFileSync downFile, ''
     logger.info 'create down file:', downFile
+    callback()
 
   # Start migration
   migrate: (name, callback = ->) ->
