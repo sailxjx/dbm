@@ -41,10 +41,73 @@ config = require '../lib/config.js'
 #       if file.indexOf('tmp_file') > 0
 #         fs.unlinkSync path.join('migrations', file)
 
-describe 'Migrate', ->
+# describe 'Migrate', ->
 
-  it 'should migrate till the create_user migration', (done) ->
-    mms.migrate 'create_user', {}, (err) ->
+#   it 'should migrate till the create_user migration', (done) ->
+#     mms.migrate 'create_user', {}, (err) ->
+#       exec '''
+#       mongo 127.0.0.1/test --quiet --eval '
+#       var user = db.users.findOne();
+#       print(user.email);
+#       '
+#       ''', (err, stdout) ->
+#         stdout.should.eql 'user@gmail.com\n'
+#         delete require.cache[path.resolve('./migrations/.migrate.json')]
+#         done err
+
+#   it 'should migrate till the 1401332571122(update_email) migration', (done) ->
+#     mms.migrate '1401332571122', {}, (err) ->
+#       exec '''
+#       mongo 127.0.0.1/test --quiet --eval '
+#       var user = db.users.findOne();
+#       print(user.email);
+#       '
+#       ''', (err, stdout) ->
+#         stdout.should.eql 'new@gmail.com\n'
+#         delete require.cache[path.resolve('./migrations/.migrate.json')]
+#         done err
+
+#   it 'should migrate the next migration', (done) ->
+#     mms.migrate '1', {}, (err) ->
+#       exec '''
+#       mongo 127.0.0.1/test --quiet --eval '
+#       var user = db.users.findOne();
+#       print(user.avatar);
+#       '
+#       ''', (err, stdout) ->
+#         stdout.should.eql 'avatarurl\n'
+#         delete require.cache[path.resolve('./migrations/.migrate.json')]
+#         done err
+
+#   it 'should update the migration file', ->
+#     schema = require path.resolve('./migrations/.migrate.json')
+#     Object.keys(schema).length.should.eql 3
+#     delete require.cache[path.resolve('./migrations/.migrate.json')]
+
+#   after (done) ->
+#     fs.unlinkSync path.resolve './migrations/.migrate.json'
+#     exec '''
+#     mongo 127.0.0.1/test --quiet --eval 'db.dropDatabase();'
+#     ''', done
+
+describe 'Rollback', ->
+
+  before (done) -> mms.migrate null, {}, done
+
+  it 'should rollback 1 migration', (done) ->
+    mms.rollback '1', {}, (err) ->
+      exec '''
+      mongo 127.0.0.1/test --quiet --eval '
+      var user = db.users.findOne();
+      print(user.avatar);
+      '
+      ''', (err, stdout) ->
+        stdout.should.eql 'null\n'
+        delete require.cache[path.resolve('./migrations/.migrate.json')]
+        done err
+
+  it 'should rollback to update_email', (done) ->
+    mms.rollback 'update_email', {}, (err) ->
       exec '''
       mongo 127.0.0.1/test --quiet --eval '
       var user = db.users.findOne();
@@ -54,35 +117,6 @@ describe 'Migrate', ->
         stdout.should.eql 'user@gmail.com\n'
         delete require.cache[path.resolve('./migrations/.migrate.json')]
         done err
-
-  it 'should migrate till the 1401332571122(update_email) migration', (done) ->
-    mms.migrate '1401332571122', {}, (err) ->
-      exec '''
-      mongo 127.0.0.1/test --quiet --eval '
-      var user = db.users.findOne();
-      print(user.email);
-      '
-      ''', (err, stdout) ->
-        stdout.should.eql 'new@gmail.com\n'
-        delete require.cache[path.resolve('./migrations/.migrate.json')]
-        done err
-
-  it 'should migrate the next migration', (done) ->
-    mms.migrate '1', {}, (err) ->
-      exec '''
-      mongo 127.0.0.1/test --quiet --eval '
-      var user = db.users.findOne();
-      print(user.avatar);
-      '
-      ''', (err, stdout) ->
-        stdout.should.eql 'avatarurl\n'
-        delete require.cache[path.resolve('./migrations/.migrate.json')]
-        done err
-
-  it 'should update the migration file', ->
-    schema = require path.resolve('./migrations/.migrate.json')
-    Object.keys(schema).length.should.eql 3
-    delete require.cache[path.resolve('./migrations/.migrate.json')]
 
   after (done) ->
     fs.unlinkSync path.resolve './migrations/.migrate.json'

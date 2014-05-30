@@ -1,2 +1,4 @@
-print('update email')
-db.users.update {email: 'user@gmail.com'}, email: 'new@gmail.com'
+db.users.update
+  email: 'user@gmail.com'
+, $set:
+    email: 'new@gmail.com'

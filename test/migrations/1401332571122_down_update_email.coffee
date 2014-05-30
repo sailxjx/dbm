@@ -1,2 +1,4 @@
-print('rollback email')
-db.users.update {email: 'new@gmail.com'}, email: 'user@gmail.com'
+db.users.update
+  email: 'new@gmail.com'
+, $set:
+    email: 'user@gmail.com'

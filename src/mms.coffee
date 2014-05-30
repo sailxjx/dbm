@@ -37,17 +37,17 @@ class MMS
     return migrations
 
   _checkVersion: (name, migrations) ->
+    return true unless name?
     versionIdx = {}
     nameIdx = {}
     for title, migration of migrations
       versionIdx[title[0...13]] = 1
       nameIdx[title[14..]] = 1
-    unless versionIdx[name] or nameIdx[name] or name.match /[0-9]{1,5}/
+    unless versionIdx[name] or nameIdx[name] or name?.match /[0-9]{1,5}/
       console.error '  fail'.red, "migration [#{name}] not found!".grey
       process.exit(1)
 
   _migrate: (file, callback = ->) ->
-    console.log '  migrate'.cyan, file.grey
     isCoffee = true if path.extname(file) is '.coffee'
     async.waterfall [
       (next) ->
@@ -100,15 +100,16 @@ class MMS
     step = 0
     async.eachSeries Object.keys(migrations), (title, next) =>
       if schema[title]? and schema[title].status is 'up'
-        console.log '============'
         newSchema[title] = status: 'up'
         next()
       else
         migration = migrations[title]
+        console.log '  migrate'.cyan, title.grey
         @_migrate migration.up, ->
           step += 1
           newSchema[title] = status: 'up'
           fs.writeFileSync config.schema, JSON.stringify(newSchema, null, 2)
+          return next() unless name?
           if name.match /[0-9]{1,5}/ and step is Number(name)
             return next('finish')
           if title.indexOf(name) > -1
@@ -122,7 +123,35 @@ class MMS
   rollback: (name, options = {}, callback = ->) ->
     migrations = @_loadMigrations()
     @_checkVersion(name, migrations)
-    callback()
+
+    try
+      schema = require path.resolve(config.schema)
+    catch e
+      schema = {}
+
+    step = 0
+    titles = Object.keys(schema)
+    titles.sort (x, y) -> 1
+
+    async.eachSeries titles, (title, next) =>
+      step += 1
+      migration = migrations[title]
+      unless migration?
+        delete schema[title]
+        return next()
+      console.log '  rollback'.cyan, title.grey
+      @_migrate migration.down, ->
+        delete schema[title]
+        fs.writeFileSync config.schema, JSON.stringify(schema, null, 2)
+        return next() unless name?
+        if name.match /[0-9]{1,5}/ and step is Number(name)
+          return next('finish')
+        if title.indexOf(name) > -1
+          return next('finish')
+        next()
+    , (err) ->
+      console.log '  complete'.cyan
+      callback()
 
   status: (callback = ->) ->
 

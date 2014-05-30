@@ -1,2 +1,1 @@
-print('add avatar');
-db.users.update({}, {avatar: 'avatarurl'});
+db.users.update({}, {$set: {avatar: 'avatarurl'}});

@@ -1,2 +1,1 @@
-print('remove avatar');
-db.users.update({}, {avatar: null})
+db.users.update({}, {$set: {avatar: null}});
