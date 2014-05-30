@@ -39,4 +39,7 @@ commander.command 'status'
   .description 'show status of migrations'
   .action (options) -> mms.status()
 
-commander.parse process.argv
+args = commander.parse process.argv
+
+if args.args.length < 1
+  mms.migrate null, args
