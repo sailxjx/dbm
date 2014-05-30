@@ -154,5 +154,20 @@ class MMS
       callback()
 
   status: (callback = ->) ->
+    migrations = @_loadMigrations()
+    try
+      schema = require path.resolve(config.schema)
+    catch e
+      schema = {}
+    status = {}
+    console.log '  status'.cyan
+    for title, migration of migrations
+      if schema[title]?.status is 'up'
+        status[title] = 'up'
+        console.log "  up".green, title.grey
+      else
+        status[title] = 'down'
+        console.log "  down".red, title.grey
+    callback(null, status)
 
 module.exports = new MMS
