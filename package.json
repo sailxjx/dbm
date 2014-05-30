@@ -1,7 +1,7 @@
 {
   "name": "mms",
   "description": "db migration with mongo shell",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "main": "./lib/mms.js",
   "directories": {
     "test": "test"
