@@ -3,6 +3,9 @@
   "description": "db migration with mongo shell",
   "version": "0.0.1",
   "main": "./lib/mms.js",
+  "bin": {
+    "mms": "./bin/mms"
+  },
   "directories": {
     "test": "test"
   },
