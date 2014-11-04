@@ -4,8 +4,8 @@ should = require 'should'
 fs = require 'fs'
 path = require 'path'
 {exec} = require 'child_process'
-mms = require '../lib/mms.js'
-config = require '../lib/config.js'
+mms = require '../src/mms'
+config = require '../src/config'
 
 describe 'Create', ->
 
