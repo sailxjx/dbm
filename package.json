@@ -19,14 +19,13 @@
     "url": "git@github.com:sailxjx/migrate-shell.git"
   },
   "devDependencies": {
-    "cake-dog": "^0.3.0",
-    "should": "^3.3.1",
-    "mocha": "^1.18.2",
+    "should": "^3.3.2",
+    "mocha": "^1.21.5",
     "coffee-script": "^1.7.1"
   },
   "dependencies": {
-    "mkdirp": "^0.4.1",
-    "commander": "^2.2.0",
+    "mkdirp": "^0.4.2",
+    "commander": "^2.5.0",
     "colors": "^0.6.2",
     "async": "^0.9.0"
   }
