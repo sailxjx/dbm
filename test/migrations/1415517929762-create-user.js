@@ -1,4 +1,4 @@
-exports.up = function(next) {
+exports.up = function() {
   mongo(function() {
     db.users.create({
       name: 'mms',
@@ -7,7 +7,7 @@ exports.up = function(next) {
   });
 };
 
-exports.down = function(next) {
+exports.down = function() {
   mongo(function() {
     db.users.remove({
       name: 'mms'

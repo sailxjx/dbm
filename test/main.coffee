@@ -3,20 +3,36 @@ process.chdir __dirname
 should = require 'should'
 fs = require 'fs'
 path = require 'path'
-{exec} = require 'child_process'
+{exec, run} = require 'execSync'
 mms = require '../src/mms'
 
-describe 'Create', ->
+# describe 'Create', ->
 
-  it 'should create two migration files', ->
-    mms.create 'tmp-file'
-    files = fs.readdirSync './migrations'
-    files.some (file) -> file.match /^[0-9]{13}-tmp-file/
-    .should.eql true
+#   before -> run '''
+#   mongo 127.0.0.1/test --quiet --eval 'db.dropDatabase();'
+#   '''
 
-  after ->
-    files = fs.readdirSync './migrations'
-    files.forEach (file) -> fs.unlinkSync path.join('migrations', file) if file.indexOf('tmp-file') > 0
+#   it 'should create two migration files', ->
+#     mms.create 'tmp-file'
+#     files = fs.readdirSync './migrations'
+#     files.some (file) -> file.match /^[0-9]{13}-tmp-file/
+#     .should.eql true
+
+#   after ->
+#     files = fs.readdirSync './migrations'
+#     files.forEach (file) -> fs.unlinkSync path.join('migrations', file) if file.indexOf('tmp-file') > 0
+
+describe 'Migrate', ->
+
+  it 'should migrate till the create-user migration', ->
+    mms.migrate 'create-user'
+    {stdout} = exec '''
+    mongo 127.0.0.1/test --quiet --eval '
+    print(db.users.findOne().email);
+    '
+    '''
+    console.log stdout
+    stdout.should.containEql 'mms@gmail.com\n'
 
 # describe 'Migrate', ->
 

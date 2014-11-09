@@ -8,21 +8,21 @@ commander.version pkg.version
 commander.command 'migrate'
   .usage '[name|version|step]'
   .description '(default) migrate to the given migration'
-  .action mms.migrate
+  .action (name) -> mms.migrate name
 
 commander.command 'rollback'
   .usage '[name|version|step]'
   .description 'rollback till given migration'
-  .action mms.rollback
+  .action (name) -> mms.rollback name
 
 commander.command 'create'
   .usage '[name]'
   .description 'create a new migration file with its name'
-  .action mms.create
+  .action (name) -> mms.create name
 
 commander.command 'status'
   .description 'show status of migrations'
-  .action mms.status
+  .action -> mms.status()
 
 args = commander.parse process.argv
 
