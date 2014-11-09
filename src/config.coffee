@@ -1,5 +1,4 @@
-module.exports =
+module.exports = config =
   dir: 'migrations'
-  db: '127.0.0.1/test'
-  schema: 'migrations/.migrate.json'
+  schema:  'migrations/.migrate.json'
   ext: '.js'

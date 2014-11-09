@@ -3,43 +3,27 @@ pkg = require '../package.json'
 mms = require './mms'
 
 commander.version pkg.version
-  .usage '[options] [command]'
-  .option '--ext <ext>', 'extension of migration files'
-  .option '--db <db>', 'connection of migration db'
-  .option '--dir <dir>', 'directory for saving migration files'
-  .option '--schema <schema>', 'the schema file to saving migration status'
+  .usage '[command] [options]'
 
 commander.command 'migrate'
   .usage '[name|version|step]'
   .description '(default) migrate to the given migration'
-  .action (name, options) ->
-    if arguments.length < 2
-      options = name
-      name = null
-    mms.migrate name, options.parent
+  .action mms.migrate
 
 commander.command 'rollback'
   .usage '[name|version|step]'
   .description 'rollback till given migration'
-  .action (name, options) ->
-    if arguments.length < 2
-      options = name
-      name = '1'
-    mms.rollback name, options.parent
+  .action mms.rollback
 
 commander.command 'create'
   .usage '[name]'
   .description 'create a new migration file with its name'
-  .action (name, options) ->
-    if arguments.length < 2
-      return console.error '  fail'.red, "missing name".grey
-    mms.create name, options.parent
+  .action mms.create
 
 commander.command 'status'
   .description 'show status of migrations'
-  .action (options) -> mms.status()
+  .action mms.status
 
 args = commander.parse process.argv
 
-if args.args.length < 1
-  mms.migrate null, args
+mms.migrate null, args if args.args.length < 1
