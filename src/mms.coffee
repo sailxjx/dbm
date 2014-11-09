@@ -79,7 +79,7 @@ _migrate = (fnName, task, callback) ->
 
   if fn.length is 0
     try
-      fn()
+      err = fn()
     catch err
     callback err
   else

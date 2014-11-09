@@ -14,7 +14,7 @@ module.exports = (options, fn) ->
   {db} = options
   db or= ''
 
-  run """
+  code = run """
   mongo #{db} <<EOF
   (#{fn.toString()})();
   EOF

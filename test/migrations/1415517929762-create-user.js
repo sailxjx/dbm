@@ -1,6 +1,6 @@
 exports.up = function() {
   mongo(function() {
-    db.users.create({
+    db.users.save({
       name: 'mms',
       email: "mms@gmail.com"
     });
