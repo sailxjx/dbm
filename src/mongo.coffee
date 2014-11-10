@@ -18,6 +18,6 @@ module.exports = (options, fn) ->
   mongo #{db} <<EOF
   (#{fn.toString()})();
   EOF
-  """
+  """.replace /\$/mg, '\\$'
 
   if code then throw new Error("ERROR: #{code}") else null

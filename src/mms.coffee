@@ -138,7 +138,7 @@ mms.migrate = (name, callback = ->) ->
       fs.writeFileAsync config.schema, JSON.stringify schema
 
     .then ->
-      if name?.match /^[0-9]{1,2}$/
+      if "#{name}"?.match /^[0-9]{1,2}$/
         stop = true if num is parseInt(name)
       else if task.name.indexOf(name) > -1
         stop = true
@@ -177,7 +177,7 @@ mms.rollback = (name, callback = ->) ->
       fs.writeFileAsync config.schema, JSON.stringify schema
 
     .then ->
-      if name?.match /^[0-9]{1,2}$/
+      if "#{name}"?.match /^[0-9]{1,2}$/
         stop = true if num is parseInt(name)
       else if task.name.indexOf(name) > -1
         stop = true
@@ -206,3 +206,5 @@ mms.status = (callback = ->) ->
       if schema[name] then _info 'up', name else _error 'down', name
 
   .then -> callback
+
+  .catch (err) -> _error 'fail', err
