@@ -8,6 +8,13 @@ Migration with Mongo Shell
 * `rollback`
 * `status`
 
+# Changelog
+
+## 0.1
+- use `mongo` function to execute mongo shell
+- replace `async` with `bluebird`
+- support node v0.11 execSync
+
 # License
 MIT
 
