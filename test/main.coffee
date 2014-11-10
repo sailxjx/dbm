@@ -3,149 +3,94 @@ process.chdir __dirname
 should = require 'should'
 fs = require 'fs'
 path = require 'path'
+Promise = require 'bluebird'
 {exec} = require 'child_process'
 mms = require '../src/mms'
-config = require '../src/config'
+
+Promise.promisifyAll fs
 
 describe 'Create', ->
 
-  it 'should create two migration files', (done) ->
-    mms.create 'tmp_file', {}, ->
-      files = fs.readdirSync './migrations'
-      hasUp = false
-      hasDown = false
-      for file in files
-        hasUp = true if file.match /^[0-9]{13}_up_tmp_file\.js$/
-        hasDown = true if file.match /^[0-9]{13}_down_tmp_file\.js$/
-      hasUp.should.eql true
-      hasDown.should.eql true
+  before (done) -> exec '''
+  mongo 127.0.0.1/test --eval 'db.dropDatabase();'
+  ''', done
+
+  it 'should create tmp migration file', (done) ->
+    mms.create 'tmp-file'
+
+    .then -> fs.readdirAsync './migrations'
+
+    .then (files) ->
+
+      files.some (file) -> file.match /^[0-9]{13}-tmp-file/
+      .should.eql true
+
       done()
 
-  it 'should create two coffee script file when use coffee compiler', (done) ->
-    config.ext = '.coffee'
-    mms.create 'tmp_file', {}, ->
-      files = fs.readdirSync './migrations'
-      hasUp = false
-      hasDown = false
-      for file in files
-        hasUp = true if file.match /^[0-9]{13}_up_tmp_file\.coffee$/
-        hasDown = true if file.match /^[0-9]{13}_down_tmp_file\.coffee$/
-      hasUp.should.eql true
-      hasDown.should.eql true
-      delete config.ext
-      done()
+    .catch done
 
-  after ->
-    files = fs.readdirSync './migrations'
-    for file in files
-      if file.indexOf('tmp_file') > 0
-        fs.unlinkSync path.join('migrations', file)
+  after (done) ->
+
+    fs.readdirAsync './migrations'
+
+    .each (file) -> fs.unlinkAsync path.join('migrations', file) if file.indexOf('tmp-file') > 0
+
+    .then -> done()
+
+    .catch done
 
 describe 'Migrate', ->
 
-  it 'should migrate till the create_user migration', (done) ->
-    mms.migrate 'create_user', {}, (err) ->
+  it 'should migrate till the create-user migration', (done) ->
+
+    mms.migrate 'create-user'
+
+    .then ->
+
       exec '''
       mongo 127.0.0.1/test --quiet --eval '
-      var user = db.users.findOne();
-      print(user.email);
+      print(db.users.findOne().email);
       '
       ''', (err, stdout) ->
-        stdout.should.eql 'user@gmail.com\n'
-        delete require.cache[path.resolve('./migrations/.migrate.json')]
-        done err
+        stdout.should.containEql 'mms@gmail.com\n'
+        done()
 
-  it 'should migrate till the 1401332571122(update_email) migration', (done) ->
-    mms.migrate '1401332571122', {}, (err) ->
+    .catch done
+
+  it 'should migrate till the last migration', (done) ->
+
+    mms.migrate()
+
+    .then ->
+
       exec '''
       mongo 127.0.0.1/test --quiet --eval '
-      var user = db.users.findOne();
-      print(user.email);
+      print(db.users.findOne().email);
       '
       ''', (err, stdout) ->
-        stdout.should.eql 'new@gmail.com\n'
-        delete require.cache[path.resolve('./migrations/.migrate.json')]
+        stdout.should.containEql 'mms@icloud.com\n'
         done err
 
-  it 'should migrate the next migration', (done) ->
-    mms.migrate '1', {}, (err) ->
-      exec '''
-      mongo 127.0.0.1/test --quiet --eval '
-      var user = db.users.findOne();
-      print(user.avatar);
-      '
-      ''', (err, stdout) ->
-        stdout.should.eql 'avatarurl\n'
-        delete require.cache[path.resolve('./migrations/.migrate.json')]
-        done err
-
-  it 'should update the migration file', ->
-    schema = require path.resolve('./migrations/.migrate.json')
-    Object.keys(schema).length.should.eql 3
-    delete require.cache[path.resolve('./migrations/.migrate.json')]
-
-  after (done) ->
-    fs.unlinkSync path.resolve './migrations/.migrate.json'
-    exec '''
-    mongo 127.0.0.1/test --quiet --eval 'db.dropDatabase();'
-    ''', done
+    .catch done
 
 describe 'Rollback', ->
 
-  before (done) -> mms.migrate null, {}, done
+  it 'should rollback 1 step', (done) ->
 
-  it 'should rollback 1 migration', (done) ->
-    mms.rollback '1', {}, (err) ->
+    mms.rollback(1)
+
+    .then ->
+
       exec '''
       mongo 127.0.0.1/test --quiet --eval '
-      var user = db.users.findOne();
-      print(user.avatar);
+      print(db.users.findOne().email);
       '
       ''', (err, stdout) ->
-        stdout.should.eql 'null\n'
-        delete require.cache[path.resolve('./migrations/.migrate.json')]
-        done err
-
-  it 'should rollback to update_email', (done) ->
-    mms.rollback 'update_email', {}, (err) ->
-      exec '''
-      mongo 127.0.0.1/test --quiet --eval '
-      var user = db.users.findOne();
-      print(user.email);
-      '
-      ''', (err, stdout) ->
-        stdout.should.eql 'user@gmail.com\n'
-        delete require.cache[path.resolve('./migrations/.migrate.json')]
-        done err
-
-  after (done) ->
-    fs.unlinkSync path.resolve './migrations/.migrate.json'
-    exec '''
-    mongo 127.0.0.1/test --quiet --eval 'db.dropDatabase();'
-    ''', done
-
-describe 'Status', ->
-
-  before (done) -> mms.migrate null, {}, done
-
-  it 'need all status to be up', (done) ->
-    mms.status (err, status) ->
-      for title, _status of status
-        _status.should.eql 'up'
-      done()
-
-  it 'should set down last migration when use rollback', (done) ->
-    mms.rollback '1', {}, ->
-      mms.status (err, status) ->
-        for title, _status of status
-          if title is '1401333214163_add_avatar'
-            _status.should.eql 'down'
-          else
-            _status.should.eql 'up'
+        stdout.should.containEql 'mms@gmail.com\n'
         done()
 
+    .catch done
+
   after (done) ->
-    fs.unlinkSync path.resolve './migrations/.migrate.json'
-    exec '''
-    mongo 127.0.0.1/test --quiet --eval 'db.dropDatabase();'
-    ''', done
+
+    fs.unlink 'migrations/.migrate.json', done

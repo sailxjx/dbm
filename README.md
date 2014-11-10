@@ -1,8 +1,6 @@
-MMS
+MMS [![NPM version][npm-image]][npm-url] [![Build Status][travis-image]][travis-url]
 ===
 Migration with Mongo Shell
-
-[![build status](https://api.travis-ci.org/sailxjx/mms.png)](https://travis-ci.org/sailxjx/mms)
 
 # Commands
 * `create`
@@ -12,3 +10,9 @@ Migration with Mongo Shell
 
 # License
 MIT
+
+[npm-url]: https://npmjs.org/package/mms
+[npm-image]: http://img.shields.io/npm/v/mms.svg
+
+[travis-url]: https://travis-ci.org/sailxjx/mms
+[travis-image]: http://img.shields.io/travis/sailxjx/mms.svg

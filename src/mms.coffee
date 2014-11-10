@@ -1,173 +1,210 @@
+require 'coffee-script/register'
+coffee = require 'coffee-script'
 fs = require 'fs'
 path = require 'path'
 util = require 'util'
 mkdirp = require 'mkdirp'
 colors = require 'colors'
-async = require 'async'
-{exec} = require 'child_process'
+Promise = require 'bluebird'
+Promise.promisifyAll fs
+
 config = require './config'
+pkg = require '../package.json'
 
-class MMS
+# Register global functions
+global.mongo = require './mongo'
 
-  constructor: () ->
-    @_loadrc()
+###*
+ * Read the global runtime-config file, overwrite the default configuration
+###
+try
+  rcPath = path.join process.env.HOME, '.mmsrc.json'
+  config = util._extend config, require rcPath
+catch e
 
-  _loadrc: ->
-    try
-      config = util._extend config,
-        require path.resolve('./.mmsrc.json')
-    catch e
+{ext, dir} = config
 
-  _loadMigrations: ->
-    migrations = {}
-    files = fs.readdirSync config.dir
-    files = files.filter (file) -> if file.match /^[0-9]{13}_(up|down)_.*\.(js|coffee)$/ then true else false
-    files.sort (x, y) -> Number(x.split('_')[0]) - Number(y.split('_')[0])
-    files.forEach (file) ->
-      title = file.replace /^[0-9]{13}_(up|down)/, (code) -> code.split('_')[0]
-      upFile = title.replace /^[0-9]{13}/, (code) -> code + '_up'
-      downFile = title.replace /^[0-9]{13}/, (code) -> code + '_down'
-      title = title.split('.')[0]  # Remove extension name of title
-      if upFile in files and downFile in files
-        migrations[title] =
-          up: upFile
-          down: downFile
-      else
-        delete migrations[title]
-    return migrations
+###*
+ * Migrate template in Coffeescript/Javascript format
+ * @type {String}
+###
+template = """
+exports.up = (next) ->
+  next()
 
-  _checkVersion: (name, migrations) ->
-    return true unless name?
-    versionIdx = {}
-    nameIdx = {}
-    for title, migration of migrations
-      versionIdx[title[0...13]] = 1
-      nameIdx[title[14..]] = 1
-    unless versionIdx[name] or nameIdx[name] or name?.match /[0-9]{1,5}/
-      console.error '  fail'.red, "migration [#{name}] not found!".grey
-      process.exit(1)
+exports.down = (next) ->
+  next()
+"""
 
-  _migrate: (file, callback = ->) ->
-    isCoffee = true if path.extname(file) is '.coffee'
-    async.waterfall [
-      (next) ->
-        filePath = path.join config.dir, file
-        if isCoffee
-          exec "coffee -c #{filePath}", (err) ->
-            filePath = filePath.replace '.coffee', '.js'
-            next err, filePath
-        else
-          next null, filePath
-      (filePath, next) ->
-        child = exec "mongo #{config.db} --quiet #{filePath}", (err) -> next err, filePath
-        child.stdout.on 'data', (data) -> process.stdout.write data
-        child.stderr.on 'data', (data) -> process.stderr.write data
-      (filePath, next) ->
-        fs.unlinkSync filePath if isCoffee
-        next()
-    ], (err) ->
-      if err?
-        console.error '  fail'.red, file.grey
-        process.exit(2)
-      else
-        console.log '  succ'.green, file.grey
-        callback()
+###*
+ * Compile the migrate template to Javascript file when use the Javascript pattern
+ * @type {[type]}
+###
+template = coffee.compile template, bare: true if config.ext is '.js'
 
-  # Create new migration files
-  create: (name, options = {}, callback = ->) ->
-    timestamp = Date.now()
-    ext = config.ext or '.js'
-    upFile = path.join config.dir, "#{timestamp}_up_#{name}#{ext}"
-    downFile = path.join config.dir, "#{timestamp}_down_#{name}#{ext}"
+schema = null
 
-    mkdirp.sync config.dir
-    fs.writeFileSync upFile, ''
-    console.log '  create'.cyan, upFile.grey
-    fs.writeFileSync downFile, ''
-    console.log '  create'.cyan, downFile.grey
-    callback()
+###*
+ * output infomation
+ * @param  {String} action
+ * @param  {String} msg
+ * @return {Null}
+###
+_info = (action, msg = '') -> console.log "  #{action}".cyan, msg.grey
 
-  # Start migration
-  migrate: (name, options = {}, callback = ->) ->
-    migrations = @_loadMigrations()
-    @_checkVersion(name, migrations)
-    try
-      schema = require path.resolve(config.schema)
-    catch e
-      schema = {}
-    newSchema = {}
+###*
+ * output error message
+ * @param  {String} action
+ * @param  {String} msg
+ * @return {Null}
+###
+_error = (action, msg = '') -> console.error "  #{action}".red, "#{msg}".grey
 
-    step = 0
-    async.eachSeries Object.keys(migrations), (title, next) =>
-      if schema[title]? and schema[title].status is 'up'
-        newSchema[title] = status: 'up'
-        next()
-      else
-        migration = migrations[title]
-        console.log '  migrate'.cyan, title.grey
-        @_migrate migration.up, ->
-          step += 1
-          newSchema[title] = status: 'up'
-          fs.writeFileSync config.schema, JSON.stringify(newSchema, null, 2)
-          return next() unless name?
-          if name.match /[0-9]{1,5}/ and step is Number(name)
-            return next('finish')
-          if title.indexOf(name) > -1
-            return next('finish')
-          next()
-    , (err) ->
-      console.log '  complete'.cyan
-      callback()
+_loadSchema = ->
+  try
+    schema = require path.resolve(config.schema)
+  catch e
+    schema = {}
+  schema
 
-  # Rollback to the former version
-  rollback: (name, options = {}, callback = ->) ->
-    migrations = @_loadMigrations()
-    @_checkVersion(name, migrations)
+_loadTasks = (direction = 'up') ->
+  fs.readdirAsync config.dir
 
-    try
-      schema = require path.resolve(config.schema)
-    catch e
-      schema = {}
+  .then (files) ->
 
-    step = 0
-    titles = Object.keys(schema)
-    titles.sort (x, y) -> 1
+    files.filter (file) -> if file.match /^[0-9]{13}\-.*\.(js|coffee)$/ then true else false
 
-    async.eachSeries titles, (title, next) =>
-      step += 1
-      migration = migrations[title]
-      unless migration?
-        delete schema[title]
-        return next()
-      console.log '  rollback'.cyan, title.grey
-      @_migrate migration.down, ->
-        delete schema[title]
-        fs.writeFileSync config.schema, JSON.stringify(schema, null, 2)
-        return next() unless name?
-        if name.match /[0-9]{1,5}/ and step is Number(name)
-          return next('finish')
-        if title.indexOf(name) > -1
-          return next('finish')
-        next()
-    , (err) ->
-      console.log '  complete'.cyan
-      callback()
+    .sort (x, y) ->
+      x = Number(x.split('-')[0])
+      y = Number(y.split('-')[0])
+      if direction is 'up' then x - y else y - x
 
-  status: (callback = ->) ->
-    migrations = @_loadMigrations()
-    try
-      schema = require path.resolve(config.schema)
-    catch e
-      schema = {}
-    status = {}
-    console.log '  status'.cyan
-    for title, migration of migrations
-      if schema[title]?.status is 'up'
-        status[title] = 'up'
-        console.log "  up".green, title.grey
-      else
-        status[title] = 'down'
-        console.log "  down".red, title.grey
-    callback(null, status)
+    .map (file) -> name: file.split('.')[0], path: path.resolve(path.join(config.dir, file))
 
-module.exports = new MMS
+_exec = (fn) ->
+
+  if fn.length is 0
+
+    _fn = (next) -> next(null, fn())
+
+  else
+
+    _fn = fn
+
+  Promise.promisify(_fn)()
+
+mms = module.exports
+
+mms.version = pkg.version
+
+mms.create = (name, callback) ->
+  timestamp = Date.now()
+  file = path.join config.dir, "#{timestamp}-#{name}#{ext}"
+
+  Promise.promisify(mkdirp) dir
+
+  .then (dir) -> fs.writeFileAsync file, template
+
+  .then -> _info 'create', file
+
+  .catch (err) -> _error 'fail', err
+
+  .then callback
+
+mms.migrate = (name, callback = ->) ->
+
+  schema = _loadSchema()
+
+  stop = false
+
+  _loadTasks('up')
+
+  .reduce (num, task, idx) ->
+
+    return if stop
+
+    migration = require task.path
+    throw new Error('INVALID MIGRATION: ' + task.name) unless typeof migration.up is 'function'
+
+    if schema[task.name]
+      _info 'skip', task.name
+      return num
+
+    # Execute the migration and save the schema file when finished
+    _exec migration.up
+
+    .then ->
+      schema[task.name] = status: 'up'
+      fs.writeFileAsync config.schema, JSON.stringify schema
+
+    .then ->
+      if "#{name}"?.match /^[0-9]{1,2}$/
+        stop = true if num is parseInt(name)
+      else if task.name.indexOf(name) > -1
+        stop = true
+
+      _info 'up', task.name
+      num += 1
+
+  , 1
+
+  .then -> _info 'complete'
+
+  .catch (err) -> _error 'fail', err
+
+  .then callback
+
+mms.rollback = (name, callback = ->) ->
+
+  schema = _loadSchema()
+
+  stop = false
+
+  _loadTasks('down')
+
+  .reduce (num, task, idx) ->
+
+    return if stop
+
+    migration = require task.path
+    throw new Error('INVALID MIGRATION: ' + task.name) unless typeof migration.down is 'function'
+    return _info 'skip', task.name unless schema[task.name]?.status is 'up'
+
+    _exec migration.down
+
+    .then ->
+      delete schema[task.name]
+      fs.writeFileAsync config.schema, JSON.stringify schema
+
+    .then ->
+      if "#{name}"?.match /^[0-9]{1,2}$/
+        stop = true if num is parseInt(name)
+      else if task.name.indexOf(name) > -1
+        stop = true
+
+      _info 'down', task.name
+      num += 1
+
+  , 1
+
+  .then -> _info 'complete'
+
+  .catch (err) -> _error 'fail', err
+
+  .then callback
+
+mms.status = (callback = ->) ->
+
+  schema = _loadSchema()
+
+  _loadTasks()
+
+  .then (tasks) ->
+
+    tasks.forEach (task) ->
+      {name} = task
+      if schema[name] then _info 'up', name else _error 'down', name
+
+  .then -> callback
+
+  .catch (err) -> _error 'fail', err
