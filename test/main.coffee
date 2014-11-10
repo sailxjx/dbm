@@ -3,35 +3,52 @@ process.chdir __dirname
 should = require 'should'
 fs = require 'fs'
 path = require 'path'
+Promise = require 'bluebird'
 {exec, run} = require 'execSync'
 mms = require '../src/mms'
+
+Promise.promisifyAll fs
 
 describe 'Create', ->
 
   before -> run '''
-  mongo 127.0.0.1/test --quiet --eval 'db.dropDatabase();'
+  mongo 127.0.0.1/test --eval 'db.dropDatabase();'
   '''
 
-  it 'should create two migration files', ->
+  it 'should create tmp migration file', (done) ->
     mms.create 'tmp-file'
-    files = fs.readdirSync './migrations'
-    files.some (file) -> file.match /^[0-9]{13}-tmp-file/
-    .should.eql true
 
-  after ->
-    files = fs.readdirSync './migrations'
-    files.forEach (file) -> fs.unlinkSync path.join('migrations', file) if file.indexOf('tmp-file') > 0
+    .then -> fs.readdirAsync './migrations'
 
-describe 'Migrate', ->
+    .then (files) ->
 
-  it 'should migrate till the create-user migration', ->
-    mms.migrate 'create-user'
-    {stdout} = exec '''
-    mongo 127.0.0.1/test --quiet --eval '
-    print(db.users.findOne().email);
-    '
-    '''
-    stdout.should.containEql 'mms@gmail.com\n'
+      files.some (file) -> file.match /^[0-9]{13}-tmp-file/
+      .should.eql true
+
+      done()
+
+    .catch done
+
+  after (done) ->
+
+    fs.readdirAsync './migrations'
+
+    .each (file) -> fs.unlinkAsync path.join('migrations', file) if file.indexOf('tmp-file') > 0
+
+    .then -> done()
+
+    .catch done
+
+# describe 'Migrate', ->
+
+#   it 'should migrate till the create-user migration', ->
+#     mms.migrate 'create-user'
+#     {stdout} = exec '''
+#     mongo 127.0.0.1/test --quiet --eval '
+#     print(db.users.findOne().email);
+#     '
+#     '''
+#     stdout.should.containEql 'mms@gmail.com\n'
 
 # describe 'Migrate', ->
 
