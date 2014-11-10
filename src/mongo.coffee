@@ -1,5 +1,3 @@
-{run} = require 'execSync'
-
 ###*
  * execute mongo shell script
  * @param  {Object}   options The options
@@ -7,6 +5,8 @@
  * @return {Number}           Exit code
 ###
 module.exports = (options, fn) ->
+  {run} = require 'execSync'
+
   if arguments.length is 1
     fn = options
     options = {}

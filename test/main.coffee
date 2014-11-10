@@ -4,16 +4,16 @@ should = require 'should'
 fs = require 'fs'
 path = require 'path'
 Promise = require 'bluebird'
-{exec, run} = require 'execSync'
+{exec} = require 'child_process'
 mms = require '../src/mms'
 
 Promise.promisifyAll fs
 
 describe 'Create', ->
 
-  before -> run '''
+  before (done) -> exec '''
   mongo 127.0.0.1/test --eval 'db.dropDatabase();'
-  '''
+  ''', done
 
   it 'should create tmp migration file', (done) ->
     mms.create 'tmp-file'
@@ -46,13 +46,14 @@ describe 'Migrate', ->
     mms.migrate 'create-user'
 
     .then ->
-      {stdout} = exec '''
+
+      exec '''
       mongo 127.0.0.1/test --quiet --eval '
       print(db.users.findOne().email);
       '
-      '''
-      stdout.should.containEql 'mms@gmail.com\n'
-      done()
+      ''', (err, stdout) ->
+        stdout.should.containEql 'mms@gmail.com\n'
+        done()
 
     .catch done
 
@@ -61,13 +62,14 @@ describe 'Migrate', ->
     mms.migrate()
 
     .then ->
-      {stdout} = exec '''
+
+      exec '''
       mongo 127.0.0.1/test --quiet --eval '
       print(db.users.findOne().email);
       '
-      '''
-      stdout.should.containEql 'mms@icloud.com\n'
-      done()
+      ''', (err, stdout) ->
+        stdout.should.containEql 'mms@icloud.com\n'
+        done err
 
     .catch done
 
@@ -78,13 +80,14 @@ describe 'Rollback', ->
     mms.rollback(1)
 
     .then ->
-      {stdout} = exec '''
+
+      exec '''
       mongo 127.0.0.1/test --quiet --eval '
       print(db.users.findOne().email);
       '
-      '''
-      stdout.should.containEql 'mms@gmail.com\n'
-      done()
+      ''', (err, stdout) ->
+        stdout.should.containEql 'mms@gmail.com\n'
+        done()
 
     .catch done
 
