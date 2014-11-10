@@ -19,3 +19,5 @@ module.exports = (options, fn) ->
   (#{fn.toString()})();
   EOF
   """
+
+  if code then throw new Error("ERROR: #{code}") else null

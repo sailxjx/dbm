@@ -5,7 +5,8 @@ path = require 'path'
 util = require 'util'
 mkdirp = require 'mkdirp'
 colors = require 'colors'
-async = require 'async'
+Promise = require 'bluebird'
+Promise.promisifyAll fs
 
 config = require './config'
 pkg = require '../package.json'
@@ -13,6 +14,9 @@ pkg = require '../package.json'
 # Register global functions
 global.mongo = require './mongo'
 
+###*
+ * Read the global runtime-config file, overwrite the default configuration
+###
 try
   rcPath = path.join process.env.HOME, '.mmsrc.json'
   config = util._extend config, require rcPath
@@ -20,6 +24,10 @@ catch e
 
 {ext, dir} = config
 
+###*
+ * Migrate template in Coffeescript/Javascript format
+ * @type {String}
+###
 template = """
 exports.up = (next) ->
   next()
@@ -36,68 +44,54 @@ template = coffee.compile template, bare: true if config.ext is '.js'
 
 schema = null
 
+###*
+ * output infomation
+ * @param  {String} action
+ * @param  {String} msg
+ * @return {Null}
+###
+_info = (action, msg = '') -> console.log "  #{action}".cyan, msg.grey
+
+###*
+ * output error message
+ * @param  {String} action
+ * @param  {String} msg
+ * @return {Null}
+###
+_error = (action, msg = '') -> console.error "  #{action}".red, "#{msg}".grey
+
 _loadSchema = ->
   try
-    schema = require config.schema
+    schema = require path.resolve(config.schema)
   catch e
     schema = {}
   schema
 
-_saveSchema = (task, status) ->
-  {name} = task
-  if status is 'down' and schema[name]
-    delete schema[name]
-    fs.writeFileSync config.schema, JSON.stringify(schema)
+_loadTasks = (direction = 'up') ->
+  fs.readdirAsync config.dir
 
-  if status is 'up' and not schema[name]
-    schema[name] = status: 'up'
-    fs.writeFileSync config.schema, JSON.stringify(schema)
+  .then (files) ->
 
-_loadTasks = ->
-  files = fs.readdirSync config.dir
-  files = files.filter (file) -> if file.match /^[0-9]{13}\-.*\.(js|coffee)$/ then true else false
-  files.sort (x, y) -> Number(x.split('-')[0]) - Number(y.split('-')[0])
-  .map (file) -> name: file.split('.')[0], path: path.resolve(path.join(config.dir, file))
+    files.filter (file) -> if file.match /^[0-9]{13}\-.*\.(js|coffee)$/ then true else false
 
-_migrate = (fnName, task, callback) ->
-  {name} = task
+    .sort (x, y) ->
+      x = Number(x.split('-')[0])
+      y = Number(y.split('-')[0])
+      if direction is 'up' then x - y else y - x
 
-  try
-    migration = require task.path
-    fn = migration[fnName]
-  catch e
+    .map (file) -> name: file.split('.')[0], path: path.resolve(path.join(config.dir, file))
 
-  return callback(new Error('INVALID MIGRATION: ' + task.name)) unless typeof fn is 'function'
-
-  schema = _loadSchema() unless schema
-
-  if fnName is 'up' and schema[name]
-    return callback()
-
-  if fnName is 'down' and not schema[name]
-    return callback()
+_exec = (fn) ->
 
   if fn.length is 0
-    try
-      err = fn()
-    catch err
-    callback err
+
+    _fn = (next) -> next(null, fn())
+
   else
-    fn callback
 
-_up = (task, callback) ->
-  {name} = task
-  _migrate 'up', task, (err) ->
-    return callback(err) if err
-    console.log '  up'.green, name.grey
-    callback null
+    _fn = fn
 
-_down = (task, callback) ->
-  {name} = task
-  _migrate 'down', task, (err) ->
-    return callback(err) if err
-    console.log '  down'.green, name.grey
-    callback null
+  Promise.promisify(_fn)()
 
 mms = module.exports
 
@@ -106,33 +100,109 @@ mms.version = pkg.version
 mms.create = (name, callback) ->
   timestamp = Date.now()
   file = path.join config.dir, "#{timestamp}-#{name}#{ext}"
-  mkdirp.sync dir
-  fs.writeFileSync file, template
-  console.log '  create'.cyan, file.grey
+
+  Promise.promisify(mkdirp) dir
+
+  .then (dir) -> fs.writeFileAsync file, template
+
+  .then -> _info 'create', file
+
+  .catch (err) -> _error 'fail', err
+
+  .then callback
 
 mms.migrate = (name, callback = ->) ->
-  async.eachSeries _loadTasks(), _up, (err) ->
-    if err
-      console.error err.toString()
-    else
-      console.log '  complete'.cyan
-    callback err
+
+  schema = _loadSchema()
+
+  stop = false
+
+  _loadTasks('up')
+
+  .reduce (num, task, idx) ->
+
+    return if stop
+
+    migration = require task.path
+    throw new Error('INVALID MIGRATION: ' + task.name) unless typeof migration.up is 'function'
+
+    if schema[task.name]
+      _info 'skip', task.name
+      return num
+
+    # Execute the migration and save the schema file when finished
+    _exec migration.up
+
+    .then ->
+      schema[task.name] = status: 'up'
+      fs.writeFileAsync config.schema, JSON.stringify schema
+
+    .then ->
+      if name?.match /^[0-9]{1,2}$/
+        stop = true if num is parseInt(name)
+      else if task.name.indexOf(name) > -1
+        stop = true
+
+      _info 'up', task.name
+      num += 1
+
+  , 1
+
+  .then -> _info 'complete'
+
+  .catch (err) -> _error 'fail', err
+
+  .then callback
 
 mms.rollback = (name, callback = ->) ->
-  async.eachSeries _loadTasks(), _down, (err) ->
-    if err
-      console.error err.toString()
-    else
-      console.log '  complete'.cyan
-    callback err
+
+  schema = _loadSchema()
+
+  stop = false
+
+  _loadTasks('down')
+
+  .reduce (num, task, idx) ->
+
+    return if stop
+
+    migration = require task.path
+    throw new Error('INVALID MIGRATION: ' + task.name) unless typeof migration.down is 'function'
+    return _info 'skip', task.name unless schema[task.name]?.status is 'up'
+
+    _exec migration.down
+
+    .then ->
+      delete schema[task.name]
+      fs.writeFileAsync config.schema, JSON.stringify schema
+
+    .then ->
+      if name?.match /^[0-9]{1,2}$/
+        stop = true if num is parseInt(name)
+      else if task.name.indexOf(name) > -1
+        stop = true
+
+      _info 'down', task.name
+      num += 1
+
+  , 1
+
+  .then -> _info 'complete'
+
+  .catch (err) -> _error 'fail', err
+
+  .then callback
 
 mms.status = (callback = ->) ->
-  tasks = _loadTasks()
+
   schema = _loadSchema()
-  tasks.forEach (task) ->
-    {name} = task
-    if schema[name]
-      console.log '  up'.green, name.grey
-    else
-      console.log '  down'.red, name.grey
-  callback()
+
+  _loadTasks()
+
+  .then (tasks) ->
+
+    tasks.forEach (task) ->
+      {name} = task
+      if schema[name] then _info 'up', name else _error 'down', name
+
+  .then -> callback
