@@ -5,6 +5,7 @@
  * @return {Number}           Exit code
 ###
 {execSync} = require 'child_process'
+config = require './config'
 
 # For node 0.11
 if typeof execSync is 'function'
@@ -19,7 +20,7 @@ module.exports = (options, fn) ->
     options = {}
 
   {db} = options
-  db or= ''
+  db or= config.db or ''
 
   code = run """
   mongo #{db} <<EOF

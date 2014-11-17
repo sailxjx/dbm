@@ -5,7 +5,10 @@ fs = require 'fs'
 path = require 'path'
 Promise = require 'bluebird'
 {exec} = require 'child_process'
+util = require 'util'
 mms = require '../src/mms'
+config = require '../src/config'
+config = util._extend config, require('./config')
 
 Promise.promisifyAll fs
 
