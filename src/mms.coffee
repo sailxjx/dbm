@@ -24,6 +24,17 @@ catch e
 
 {ext, dir} = config
 
+# Load schemas and private configurations
+try
+  schema = require path.resolve(config.schema)
+catch e
+  schema = {}
+
+schema.schemas or= {}
+schema.config or= {}
+config = util._extend config, schema.config
+{schemas} = schema
+
 ###*
  * Migrate template in Coffeescript/Javascript format
  * @type {String}
@@ -42,8 +53,6 @@ exports.down = (next) ->
 ###
 template = coffee.compile template, bare: true if config.ext is '.js'
 
-schema = null
-
 ###*
  * output infomation
  * @param  {String} action
@@ -59,13 +68,6 @@ _info = (action, msg = '') -> console.log "  #{action}".cyan, msg.grey
  * @return {Null}
 ###
 _error = (action, msg = '') -> console.error "  #{action}".red, "#{msg}".grey
-
-_loadSchema = ->
-  try
-    schema = require path.resolve(config.schema)
-  catch e
-    schema = {}
-  schema
 
 _loadTasks = (direction = 'up') ->
   fs.readdirAsync config.dir
@@ -113,8 +115,6 @@ mms.create = (name, callback) ->
 
 mms.migrate = (name, callback = ->) ->
 
-  schema = _loadSchema()
-
   stop = false
 
   _loadTasks('up')
@@ -126,7 +126,7 @@ mms.migrate = (name, callback = ->) ->
     migration = require task.path
     throw new Error('INVALID MIGRATION: ' + task.name) unless typeof migration.up is 'function'
 
-    if schema[task.name]
+    if schemas[task.name]
       _info 'skip', task.name
       return num
 
@@ -134,7 +134,8 @@ mms.migrate = (name, callback = ->) ->
     _exec migration.up
 
     .then ->
-      schema[task.name] = status: 'up'
+      schemas[task.name] = status: 'up'
+      # Save schemas
       fs.writeFileAsync config.schema, JSON.stringify schema
 
     .then ->
@@ -156,8 +157,6 @@ mms.migrate = (name, callback = ->) ->
 
 mms.rollback = (name, callback = ->) ->
 
-  schema = _loadSchema()
-
   stop = false
 
   _loadTasks('down')
@@ -168,12 +167,12 @@ mms.rollback = (name, callback = ->) ->
 
     migration = require task.path
     throw new Error('INVALID MIGRATION: ' + task.name) unless typeof migration.down is 'function'
-    return _info 'skip', task.name unless schema[task.name]?.status is 'up'
+    return _info 'skip', task.name unless schemas[task.name]?.status is 'up'
 
     _exec migration.down
 
     .then ->
-      delete schema[task.name]
+      delete schemas[task.name]
       fs.writeFileAsync config.schema, JSON.stringify schema
 
     .then ->
@@ -195,15 +194,13 @@ mms.rollback = (name, callback = ->) ->
 
 mms.status = (callback = ->) ->
 
-  schema = _loadSchema()
-
   _loadTasks()
 
   .then (tasks) ->
 
     tasks.forEach (task) ->
       {name} = task
-      if schema[name] then _info 'up', name else _error 'down', name
+      if schemas[name] then _info 'up', name else _error 'down', name
 
   .then -> callback
 
