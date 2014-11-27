@@ -160,9 +160,11 @@ mms.migrate = (name, callback = ->) ->
 
   .catch (err) -> _error 'fail', err
 
-  .then callback
+  .then -> callback()
 
 mms.rollback = (name, callback = ->) ->
+
+  name or= 1
 
   stop = false
 
