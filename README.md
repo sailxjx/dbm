@@ -10,6 +10,9 @@ Migration with Mongo Shell
 
 # Changelog
 
+## 0.1.5
+- rollback the last step when migrate failed
+
 ## 0.1.1 ~ 0.1.3
 - add env variables in configuation and change the schema structure
 

@@ -156,7 +156,7 @@ mms.migrate = (name) ->
 
     .catch (err) ->
 
-      _error err
+      console.error "  error".red, "#{err}".grey
 
       # If the migration do not have a rollback function, skip
       unless typeof migration.down is 'function'
@@ -166,7 +166,7 @@ mms.migrate = (name) ->
       _exec migration.down
 
       .then ->
-        _info "down", task.name
+        console.log "  rollback".yellow, "#{task.name}".grey
         throw err
 
   , 1
