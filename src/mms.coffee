@@ -74,7 +74,9 @@ _info = (action, msg = '') -> console.log "  #{action}".cyan, msg.grey
  * @param  {String} msg
  * @return {Null}
 ###
-_error = (action, msg = '') -> console.error "  #{action}".red, "#{msg}".grey
+_error = (action, msg = '') ->
+  console.error "  #{action}".red, "#{msg}".grey
+  return msg
 
 _loadTasks = (direction = 'up') ->
   fs.readdirAsync config.dir
@@ -160,7 +162,7 @@ mms.migrate = (name, callback = ->) ->
 
   .catch (err) -> _error 'fail', err
 
-  .then -> callback()
+  .then callback
 
 mms.rollback = (name, callback = ->) ->
 
