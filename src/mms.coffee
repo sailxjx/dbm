@@ -36,6 +36,13 @@ config = util._extend config, schema.config
 {schemas} = schema
 
 ###*
+ * Set the env variable by config file
+ * The config object is nested with an env key
+ * config = {env: {NODE_ENV: 'development'}}
+###
+Object.keys(config.env or {}).forEach (ek) -> process.env[ek] or= config.env[ek]
+
+###*
  * Migrate template in Coffeescript/Javascript format
  * @type {String}
 ###

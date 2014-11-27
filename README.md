@@ -10,6 +10,9 @@ Migration with Mongo Shell
 
 # Changelog
 
+## 0.1.1 ~ 0.1.3
+- add env variables in configuation and change the schema structure
+
 ## 0.1
 - use `mongo` function to execute mongo shell
 - replace `async` with `bluebird`
