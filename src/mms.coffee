@@ -68,15 +68,15 @@ template = coffee.compile template, bare: true if config.ext is '.js'
 ###
 _info = (action, msg = '') -> console.log "  #{action}".cyan, msg.grey
 
+
 ###*
  * output error message
- * @param  {String} action
- * @param  {String} msg
+ * @param  {Error} error object
  * @return {Null}
 ###
-_error = (action, msg = '') ->
-  console.error "  #{action}".red, "#{msg}".grey
-  return msg
+_error = (err) ->
+  console.error "  fail".red, "#{err}".grey
+  err
 
 _loadTasks = (direction = 'up') ->
   fs.readdirAsync config.dir
@@ -108,7 +108,7 @@ mms = module.exports
 
 mms.version = pkg.version
 
-mms.create = (name, callback) ->
+mms.create = (name) ->
   timestamp = Date.now()
   file = path.join config.dir, "#{timestamp}-#{name}#{ext}"
 
@@ -118,11 +118,9 @@ mms.create = (name, callback) ->
 
   .then -> _info 'create', file
 
-  .catch (err) -> _error 'fail', err
+  .catch _error
 
-  .then callback
-
-mms.migrate = (name, callback = ->) ->
+mms.migrate = (name) ->
 
   stop = false
 
@@ -156,15 +154,28 @@ mms.migrate = (name, callback = ->) ->
       _info 'up', task.name
       num += 1
 
+    .catch (err) ->
+
+      _error err
+
+      # If the migration do not have a rollback function, skip
+      unless typeof migration.down is 'function'
+        err = new Error "migration #{task.name} do not have a rollback function!"
+        throw err
+
+      _exec migration.down
+
+      .then ->
+        _info "down", task.name
+        throw err
+
   , 1
 
   .then -> _info 'complete'
 
-  .catch (err) -> _error 'fail', err
+  .catch _error
 
-  .then callback
-
-mms.rollback = (name, callback = ->) ->
+mms.rollback = (name) ->
 
   name or= 1
 
@@ -199,11 +210,9 @@ mms.rollback = (name, callback = ->) ->
 
   .then -> _info 'complete'
 
-  .catch (err) -> _error 'fail', err
+  .catch _error
 
-  .then callback
-
-mms.status = (callback = ->) ->
+mms.status = ->
 
   _loadTasks()
 
@@ -211,8 +220,9 @@ mms.status = (callback = ->) ->
 
     tasks.forEach (task) ->
       {name} = task
-      if schemas[name] then _info 'up', name else _error 'down', name
+      if schemas[name]
+        console.log "  up".cyan, name.grey
+      else
+        console.log "  down".red, name.grey
 
-  .then -> callback
-
-  .catch (err) -> _error 'fail', err
+  .catch _error

@@ -97,3 +97,40 @@ describe 'Rollback', ->
   after (done) ->
 
     fs.unlink 'migrations/.migrate.json', done
+
+describe 'Migrate&Rollback', ->
+
+  before (done) ->
+    # Prepare the error migrate
+    fs.writeFile "migrations/1315517929762-error-user.coffee", """
+    # Save the user but throw an error
+    exports.up = (next) ->
+      mongo -> db.users.save({name: 'wrong'})
+      next(new Error("SOMETHINE WRONG"))
+
+    exports.down = (next) ->
+      mongo -> db.users.remove({name: 'wrong'})
+      next()
+    """, done
+
+
+  it 'should rollback the last step when migrate failed', (done) ->
+    mms.migrate()
+
+    .then (err) ->
+
+      return done(new Error('MISSING ERROR OBJECT')) unless err
+
+      err.message.should.eql "SOMETHINE WRONG"
+      exec '''
+      mongo 127.0.0.1/text --quiet --eval '
+      print(db.users.findOne({name: "wrong"}));
+      '
+      ''', (err, stdout) ->
+        stdout.should.eql 'null\n'
+        done()
+
+    .catch done
+
+  after (done) ->
+    fs.unlink "migrations/1315517929762-error-user.coffee", done

@@ -14,26 +14,26 @@ commander.command 'migrate'
   .description '(default) migrate to the given migration'
   .action (name, options) ->
     name = null if arguments.length is 1
-    mms.migrate name, _exit
+    mms.migrate(name).then _exit
 
 commander.command 'rollback'
   .usage '[name|version|step]'
   .description 'rollback till given migration'
   .action (name, options) ->
     name = null if arguments.length is 1
-    mms.rollback name, _exit
+    mms.rollback(name).then _exit
 
 commander.command 'create'
   .usage '[name]'
   .description 'create a new migration file with its name'
   .action (name, options) ->
     name = null if arguments.length is 1
-    mms.create name, _exit
+    mms.create(name).then _exit
 
 commander.command 'status'
   .description 'show status of migrations'
-  .action -> mms.status _exit
+  .action -> mms.status().then _exit
 
 args = commander.parse process.argv
 
-mms.migrate null, _exit if args.args.length < 1
+mms.migrate(null).then _exit if args.args.length < 1
