@@ -23,9 +23,9 @@ module.exports = (options, fn) ->
   db or= config.db or ''
 
   code = run """
-  mongo #{db} <<EOF
+  mongo #{db} <<\\MONGO
   (#{fn.toString()})();
-  EOF
-  """.replace /\$/mg, '\\$'
+  MONGO
+  """
 
   if toString.call(code) is '[object Number]' and code isnt 0 then throw new Error("ERROR: #{code}") else null
