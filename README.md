@@ -10,6 +10,9 @@ Migration with Mongo Shell
 
 # Changelog
 
+## 0.1.6
+- use temporary file to store mongo shell script
+
 ## 0.1.5
 - rollback the last step when migrate failed
 

@@ -12,11 +12,13 @@ config = util._extend config, require('./config')
 
 Promise.promisifyAll fs
 
-describe 'Create', ->
-
-  before (done) -> exec '''
+_dropDatabase = (done) -> exec '''
   mongo 127.0.0.1/test --eval 'db.dropDatabase();'
   ''', done
+
+before _dropDatabase
+
+describe 'Create', ->
 
   it 'should create tmp migration file', (done) ->
     mms.create 'tmp-file'
@@ -134,3 +136,17 @@ describe 'Migrate&Rollback', ->
 
   after (done) ->
     fs.unlink "migrations/1315517929762-error-user.coffee", done
+
+describe 'MongoCommand', ->
+
+  it 'should succeed for the right script', ->
+    mongo -> db.users.findOne()
+
+  it 'should fail for the error script', ->
+    try
+      mongo -> db.user.findOneAndUpdate({}, {})  # mongo shell do not have this command
+    catch err
+
+    throw new Error('MISS EXCEPTION') unless err
+
+after _dropDatabase
