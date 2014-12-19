@@ -7,6 +7,7 @@
 {execSync} = require 'child_process'
 path = require 'path'
 fs = require 'fs'
+os = require 'os'
 config = require './config'
 
 # For node 0.11
@@ -21,7 +22,7 @@ module.exports = (options, fn) ->
     fn = options
     options = {}
 
-  tmpDir = config.tmpDir or '/tmp'
+  tmpDir = config.tmpDir or os.tmpdir()
   tmpFileName = path.join(tmpDir, "migration_" + Date.now() + '.js')
 
   fs.writeFileSync tmpFileName, "(#{fn.toString()})();"
